@@ -123,6 +123,12 @@ When performing semantic analysis:
 1. **Sample first**: Read beginning, middle, end to understand document type
 2. **Identify top level**: Find major structural markers (TÍTULO, Chapter, Part)
 3. **Recursive subdivision**: For large sections, find logical subsections
+   - ⚠️ Keep subdividing until ALL leaf sections are ≤~5000 tokens
+   - Don't stop at first-level subdivision if sections are still oversized
 4. **Semantic boundaries**: Split based on meaning and document structure
 5. **Atomic sections**: Stop dividing when sections are complete logical units
-6. **Validate**: Ensure no gaps or overlaps in coverage
+6. **Validate chunk sizes**:
+   - Review all leaf sections against ~5000 token target
+   - Subdivide any oversized sections further
+   - Document atomic sections that cannot be split (in analyzer_notes)
+7. **Final validation**: Ensure no gaps or overlaps in coverage

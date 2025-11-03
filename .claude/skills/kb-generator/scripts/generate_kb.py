@@ -310,7 +310,7 @@ You (Claude Code) are requested to analyze the source document(s) and create a s
 
 """
 
-    request_content += """
+    request_content += f"""
 
 ## Your Task: Progressive Refinement Analysis
 
@@ -341,23 +341,27 @@ For each major section, note:
 
 ### Step 3: Recursive Subdivision
 
-For sections that are too large (>~5000 tokens), identify logical subdivisions:
+For sections that are too large (>~{max_tokens} tokens), identify logical subdivisions:
 - What are the natural subsections?
-- How does the document author organized this content?
+- How does the document author organize this content?
 - What are the semantic boundaries?
 
-Continue recursively until sections are manageable size OR reach atomic level (can't be meaningfully subdivided).
+**Continue recursively** until:
+- All leaf sections are ≤~{max_tokens} tokens, OR
+- You reach atomic level (section cannot be meaningfully subdivided)
+
+⚠️ **Important**: Do not stop at first-level subdivision if sections are still oversized. Keep subdividing recursively until leaf sections meet the token target.
 
 ### Step 4: Create Structure JSON
 
 Output the complete hierarchical structure as JSON in this format:
 
 ```json
-{
+{{
   "document_type": "legal_document",
   "language": "pt-BR",
   "hierarchy": [
-    {
+    {{
       "id": "section_001",
       "title": "PREÂMBULO",
       "level": 0,
@@ -366,8 +370,8 @@ Output the complete hierarchical structure as JSON in this format:
       "end_marker": "promulgamos a seguinte Constituição",
       "estimated_tokens": 150,
       "children": []
-    },
-    {
+    }},
+    {{
       "id": "section_002",
       "title": "TÍTULO I – DOS PRINCÍPIOS FUNDAMENTAIS",
       "level": 1,
@@ -376,7 +380,7 @@ Output the complete hierarchical structure as JSON in this format:
       "end_marker": "Art. 4º",
       "estimated_tokens": 800,
       "children": [
-        {
+        {{
           "id": "section_002_001",
           "title": "Art. 1º",
           "level": 2,
@@ -385,18 +389,40 @@ Output the complete hierarchical structure as JSON in this format:
           "end_marker": "V - o pluralismo político.",
           "estimated_tokens": 120,
           "children": []
-        }
+        }}
       ]
-    }
+    }}
   ],
-  "metadata": {
+  "metadata": {{
     "total_sections": 156,
     "max_depth": 4,
     "analysis_date": "2025-11-03",
     "analyzer_notes": "Portuguese legal document with 4-level hierarchy: TÍTULO → CAPÍTULO → SEÇÃO → Artigo. Some articles are quite long and split into parts."
-  }
-}
+  }}
+}}
 ```
+
+### Step 5: Validate Chunk Sizes
+
+**CRITICAL**: Before finalizing structure.json, validate that all leaf sections (sections without children) are properly sized:
+
+1. **Review all leaf sections** in your structure
+2. **Check token estimates** against the ~{max_tokens} token target
+3. **Identify oversized sections**: Any leaf section >~{max_tokens} tokens must be subdivided
+4. **Subdivide if possible**:
+   - Look for natural subsections within the oversized section
+   - Add children to break it down further
+   - Update parent to have children (it will no longer be a leaf)
+5. **Document atomic sections**: If a section cannot be meaningfully subdivided and exceeds {max_tokens} tokens:
+   - Note this in the `analyzer_notes` metadata
+   - Explain why it cannot be split (e.g., "Article 123 is 7000 tokens but is a single indivisible legal text")
+   - Keep it as-is (semantic completeness is prioritized over size)
+
+**Validation Checklist**:
+- [ ] All leaf sections reviewed for size
+- [ ] Oversized sections (>{max_tokens} tokens) subdivided where possible
+- [ ] Any atomic oversized sections documented in analyzer_notes
+- [ ] Token estimates are accurate (not just placeholders)
 
 ## Important Notes
 
