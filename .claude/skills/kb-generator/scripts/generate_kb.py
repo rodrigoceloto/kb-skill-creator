@@ -120,11 +120,15 @@ Navigate through the knowledge base using this semantic structure:
         indent = "  " * depth
         title = node['title']
         section_id = node['id']
+        has_children = len(node.get('children', [])) > 0
 
-        # Find corresponding chunk
-        chunk_file = f"{section_id}.md"
-
-        result = f"{indent}- [{title}](chunks/{chunk_file})"
+        # If node has children, show as header without link (parent node)
+        if has_children:
+            result = f"{indent}- **{title}**"
+        else:
+            # Leaf node - create link to chunk file
+            chunk_file = f"{section_id}.md"
+            result = f"{indent}- [{title}](chunks/{chunk_file})"
 
         # Add type and token info
         semantic_type = node.get('semantic_type', 'section')
@@ -141,7 +145,8 @@ Navigate through the knowledge base using this semantic structure:
         index_content += render_section(section)
 
     index_content += "\n## How to Use This Index\n\n"
-    index_content += "- Each link takes you to a complete semantic section\n"
+    index_content += "- **Bold titles** indicate parent sections (no duplication - content in children)\n"
+    index_content += "- Clickable links take you to complete semantic leaf sections\n"
     index_content += "- Sections preserve the document's logical structure\n"
     index_content += "- Indentation shows hierarchical relationships\n"
     index_content += "- Token counts help gauge section size\n"
@@ -184,8 +189,7 @@ This knowledge base uses intelligent, structure-aware chunking:
 ## Quick Navigation
 
 - [View Hierarchical Index](index.md) - Browse all sections by structure
-- [View Metadata](metadata.json) - Technical details and structure
-- [View Structure](structure.json) - Complete semantic analysis
+- [View Metadata](metadata.json) - Technical details and complete structure
 
 ## How to Use
 
@@ -563,9 +567,15 @@ def generate_from_structure(
 
     print(f"\nTotal chunks extracted: {len(all_chunks)}")
 
-    # Write chunk files
+    # Write chunk files (only for leaf nodes)
     print("\nWriting chunk files...")
+    leaf_chunks_written = 0
     for chunk in all_chunks:
+        # Skip parent nodes - only write leaf chunks
+        if chunk['has_children']:
+            continue
+
+        leaf_chunks_written += 1
         chunk_filename = f"{chunk['id']}.md"
         chunk_path = chunks_dir / chunk_filename
 
@@ -621,12 +631,9 @@ def generate_from_structure(
     print("Creating skill file...")
     create_semantic_skill_file(skill_dir, name, structure, all_chunks)
 
-    # Save structure.json to skill directory
-    import shutil
-    shutil.copy(structure_file, skill_dir / 'structure.json')
-
     print(f"\n✓ Skill generation complete!")
-    print(f"✓ Created {len(all_chunks)} semantic chunks")
+    print(f"✓ Created {leaf_chunks_written} leaf chunks (out of {len(all_chunks)} total sections)")
+    print(f"✓ Skipped {len(all_chunks) - leaf_chunks_written} parent nodes (no duplication)")
 
     return str(skill_dir)
 
