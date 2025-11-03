@@ -992,16 +992,28 @@ def generate_from_structure(
         current_path = f"{parent_path} > {node['title']}" if parent_path else node['title']
 
         # Extract content for this section
+        # Prefer start_line/end_line if available for more accurate extraction
+        start_line = node.get('start_line')
+        end_line = node.get('end_line')
         start_marker = node.get('start_marker', '')
         end_marker = node.get('end_marker')
 
         try:
-            content, start_pos, end_pos = extract_section_content(
-                full_content,
-                start_marker,
-                end_marker,
-                include_markers=True
-            )
+            if start_line is not None and end_line is not None:
+                # Use line-based extraction (more accurate)
+                lines = full_content.split('\n')
+                content_lines = lines[start_line:end_line]
+                content = '\n'.join(content_lines)
+                start_pos = len('\n'.join(lines[:start_line]))
+                end_pos = start_pos + len(content)
+            else:
+                # Fallback to marker-based extraction
+                content, start_pos, end_pos = extract_section_content(
+                    full_content,
+                    start_marker,
+                    end_marker,
+                    include_markers=True
+                )
 
             # Estimate actual tokens
             actual_tokens = estimate_tokens(content)
@@ -1301,8 +1313,41 @@ Examples:
             )
 
             if not all_valid:
-                print(f"\n⚠️  Warning: Structure has {len(oversized_sections)} oversized section(s).")
-                print("Generation will proceed, but oversized sections may impact performance.")
+                print(f"\n{'=' * 60}")
+                print("SEMANTIC SUBDIVISION RECOMMENDED")
+                print(f"{'=' * 60}")
+                print()
+                print(f"⚠️  Warning: Structure has {len(oversized_sections)} oversized section(s).")
+                print()
+
+                # Get workspace path from structure file
+                structure_path = Path(args.from_structure)
+                workspace = structure_path.parent
+
+                # Create subdivision request for Claude Code
+                subdivision_request = create_subdivision_request(
+                    workspace=workspace,
+                    oversized_sections=oversized_sections,
+                    structure_path=structure_path,
+                    max_tokens=args.max_tokens
+                )
+
+                print(f"📝 Subdivision request created: {subdivision_request}")
+                print()
+                print("NEXT STEPS:")
+                print("1. Read the subdivision request to understand which sections are oversized")
+                print("2. Analyze oversized sections and determine semantic subdivisions")
+                print("3. Update structure.json by adding 'children' to oversized sections")
+                print(f"4. Re-run Phase 2: python3 {sys.argv[0]} --name '{args.name}' --from-structure '{args.from_structure}'")
+                print()
+                print("OR proceed with generation (oversized sections may impact performance):")
+                print()
+                import time
+                for i in range(5, 0, -1):
+                    print(f"  Continuing in {i} seconds... (Ctrl+C to cancel)", end='\r')
+                    time.sleep(1)
+                print()
+                print("Proceeding with generation...")
                 print()
 
             skill_path = generate_from_structure(

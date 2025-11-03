@@ -46,8 +46,6 @@ This creates an analysis workspace and ANALYSIS_REQUEST.md. You (Claude Code) sh
    - Re-run with `--analyze-only` to validate subdivisions
    - **Repeat** until all leaf sections are ≤~5000 tokens
 
-This iterative process ensures semantically complete chunks at optimal size.
-
 **Phase 2: Skill Generation**
 ```bash
 python3 .claude/skills/kb-generator/scripts/generate_kb.py \
@@ -56,6 +54,12 @@ python3 .claude/skills/kb-generator/scripts/generate_kb.py \
 ```
 
 This generates the final skill with semantically-organized chunks.
+
+**Note:** Phase 2 also validates and creates subdivision requests if oversized sections are found. You can:
+- Proceed with generation (accepts warning, may have oversized chunks)
+- Or update structure.json and re-run Phase 2 with refined subdivisions
+
+Both phases support iterative subdivision - use whichever fits your workflow.
 
 ## Parameters
 
@@ -126,8 +130,9 @@ python3 .claude/skills/kb-generator/scripts/generate_kb.py \
 
 **Automatic validation detects oversized sections** → Creates `SUBDIVISION_REQUEST.md`
 
-**Iterative Subdivision (Claude Code):**
+**Iterative Subdivision (Claude Code) - Two Options:**
 
+**Option A: Refine in Phase 1**
 5. Read `SUBDIVISION_REQUEST.md` (lists 9 oversized articles)
 6. For each oversized article (e.g., Art. 5º - 8000 tokens):
    - Extract full article content
@@ -137,6 +142,13 @@ python3 .claude/skills/kb-generator/scripts/generate_kb.py \
 7. Re-run to validate: `python3 ... --analyze-only`
 8. Repeat if any subdivisions still oversized
 9. Final validation: All leaf sections ≤5000 tokens ✓
+
+**Option B: Refine in Phase 2**
+5. Proceed to Phase 2, validation detects oversized sections
+6. Creates `SUBDIVISION_REQUEST.md` with same guidance
+7. Update structure.json with subdivisions
+8. Re-run Phase 2: `python3 ... --from-structure structure.json`
+9. Iterate until all sections valid
 
 ```bash
 # Phase 2: Generate the skill

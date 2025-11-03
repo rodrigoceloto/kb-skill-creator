@@ -53,6 +53,8 @@ def collect_leaf_sections(node: Dict, parent_path: str = "", leaf_sections: List
             'semantic_type': node.get('semantic_type', 'section'),
             'start_marker': node.get('start_marker', ''),
             'end_marker': node.get('end_marker'),
+            'start_line': node.get('start_line'),
+            'end_line': node.get('end_line'),
             'estimated_tokens': node.get('estimated_tokens', 0)
         })
     else:
@@ -123,12 +125,23 @@ def validate_structure(
     for leaf in all_leaf_sections:
         try:
             # Extract actual content
-            content, start_pos, end_pos = extract_section_content(
-                full_content,
-                leaf['start_marker'],
-                leaf['end_marker'],
-                include_markers=True
-            )
+            # Prefer line-based extraction if available
+            start_line = leaf.get('start_line')
+            end_line = leaf.get('end_line')
+
+            if start_line is not None and end_line is not None:
+                # Line-based extraction (more accurate)
+                lines = full_content.split('\n')
+                content_lines = lines[start_line:end_line]
+                content = '\n'.join(content_lines)
+            else:
+                # Fallback to marker-based extraction
+                content, start_pos, end_pos = extract_section_content(
+                    full_content,
+                    leaf['start_marker'],
+                    leaf['end_marker'],
+                    include_markers=True
+                )
 
             # Calculate actual tokens
             actual_tokens = estimate_tokens(content)
