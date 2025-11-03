@@ -235,6 +235,222 @@ Browse the [hierarchical index](index.md) to explore the knowledge base structur
     print(f"  Skill file created: {skill_path}")
 
 
+def create_subdivision_request(
+    workspace: Path,
+    oversized_sections: List[Dict],
+    structure_path: Path,
+    max_tokens: int
+) -> Path:
+    """
+    Create subdivision request for Claude Code to analyze oversized sections.
+
+    Args:
+        workspace: Analysis workspace path
+        oversized_sections: List of oversized section dictionaries
+        structure_path: Path to structure.json
+        max_tokens: Maximum tokens per chunk
+
+    Returns:
+        Path to subdivision request file
+    """
+    from semantic_analyzer import load_structure, extract_section_content, estimate_tokens
+
+    # Load structure to get context
+    structure = load_structure(structure_path)
+
+    # Load source documents
+    samples_dir = workspace / 'samples'
+    source_files = list(samples_dir.glob('*.txt'))
+
+    full_content = ""
+    for source_file in source_files:
+        with open(source_file, 'r', encoding='utf-8') as f:
+            full_content += f.read() + "\n\n"
+
+    # Create subdivision request
+    request_file = workspace / 'SUBDIVISION_REQUEST.md'
+
+    request_content = f"""# Semantic Subdivision Request
+
+## Overview
+
+The initial structure analysis identified **{len(oversized_sections)} section(s)** that exceed the {max_tokens} token target. These sections need to be semantically subdivided to improve knowledge base performance.
+
+**Your task:** Analyze each oversized section below and create semantic subdivisions by adding `children` to the section in structure.json.
+
+## Structure File
+
+**Location:** `{structure_path}`
+
+## Oversized Sections
+
+The following sections need subdivision:
+
+"""
+
+    # Add details for each oversized section
+    for i, section in enumerate(oversized_sections, 1):
+        section_id = section['id']
+        section_title = section['title']
+        section_path = section['path']
+        actual_tokens = section['actual_tokens']
+        overage = actual_tokens - max_tokens
+
+        request_content += f"""
+### {i}. {section_title}
+
+- **ID:** `{section_id}`
+- **Path:** {section_path}
+- **Current size:** {actual_tokens} tokens (exceeds limit by {overage} tokens)
+- **Target:** ≤{max_tokens} tokens per subdivision
+
+**Content preview:**
+
+```
+{section.get('preview', '(Content preview not available)')}
+```
+
+**Full content location:** See structure.json markers to extract full section content from source documents.
+
+---
+"""
+
+    request_content += f"""
+
+## Your Task: Semantic Subdivision
+
+For each oversized section above, follow these steps:
+
+### Step 1: Analyze Section Structure
+
+1. **Locate the section** in structure.json by ID
+2. **Extract full content** using the section's start_marker and end_marker:
+   - Use extract_section_content() from semantic_analyzer.py
+   - Or read from workspace samples and find markers
+3. **Identify logical subdivisions** within the content:
+   - What are the natural semantic boundaries?
+   - For legal documents: Look for Incisos, Parágrafos, Alíneas
+   - For technical docs: Look for subsections, numbered steps
+   - For general text: Look for topic shifts, paragraph groups
+
+### Step 2: Create Children Structure
+
+Update structure.json to add `children` array to the oversized section. Each child should:
+- Have a unique ID: `{{parent_id}}_{{index:03d}}` (e.g., `section_007_003_001`)
+- Have a descriptive title
+- Have accurate start_marker and end_marker (use next-section start as end marker)
+- Be ≤{max_tokens} tokens when extracted
+- Have `children: []` (initially empty, will subdivide again if needed)
+
+**Example subdivision:**
+
+```json
+{{
+  "id": "section_007_003",
+  "title": "Art. 155 - ICMS",
+  "level": 2,
+  "semantic_type": "article",
+  "start_marker": "Art. 155. Compete aos Estados",
+  "end_marker": "Art. 156. Compete aos Municípios",
+  "estimated_tokens": 8000,
+  "children": [
+    {{
+      "id": "section_007_003_001",
+      "title": "Art. 155 Caput",
+      "level": 3,
+      "semantic_type": "article_section",
+      "start_marker": "Art. 155. Compete aos Estados",
+      "end_marker": "§ 1º",
+      "estimated_tokens": 1200,
+      "children": []
+    }},
+    {{
+      "id": "section_007_003_002",
+      "title": "Art. 155 § 1º ao § 5º",
+      "level": 3,
+      "semantic_type": "article_section",
+      "start_marker": "§ 1º",
+      "end_marker": "§ 6º",
+      "estimated_tokens": 2500,
+      "children": []
+    }},
+    {{
+      "id": "section_007_003_003",
+      "title": "Art. 155 § 6º ao final",
+      "level": 3,
+      "semantic_type": "article_section",
+      "start_marker": "§ 6º",
+      "end_marker": "Art. 156. Compete aos Municípios",
+      "estimated_tokens": 4300,
+      "children": []
+    }}
+  ]
+}}
+```
+
+### Step 3: Validate Markers (CRITICAL)
+
+Before saving structure.json:
+1. **Test extraction** for 2-3 of your new subdivisions
+2. **Verify token counts** match your estimates
+3. **Check for overlaps** between adjacent children
+4. **Ensure markers are unique** and specific
+
+### Step 4: Update structure.json
+
+1. Find the oversized section by ID in structure.json
+2. Replace its `children: []` with your new children array
+3. Save the updated structure.json
+4. Update `estimated_tokens` for the parent section if needed
+
+### Step 5: Re-validate
+
+After updating structure.json, the system will automatically re-validate when you run:
+
+```bash
+python3 generate_kb.py --name {structure['metadata'].get('kb_name', 'kb')} --analyze-only
+```
+
+The validation will:
+- Check all new leaf sections against the {max_tokens} token limit
+- Report any remaining oversized sections
+- Create a new subdivision request if needed
+
+## Important Notes
+
+- **Semantic boundaries**: Subdivide based on MEANING, not arbitrary token counts
+- **Complete units**: Each subdivision should be a complete logical unit
+- **Preserve hierarchy**: Maintain document structure and relationships
+- **Recursive process**: If subdivisions are still oversized, they'll be flagged for further subdivision
+- **Atomic sections**: If a section truly cannot be subdivided (indivisible content), document this in metadata `analyzer_notes`
+
+## Marker Best Practices
+
+1. **Use next-section start as end marker** to avoid overlaps
+2. **Include contextual text** for uniqueness (e.g., "§ 1º O imposto" not just "§ 1º")
+3. **Validate markers exist** in source document using Grep
+4. **Test extraction** before finalizing structure
+
+## After Subdivision
+
+Once you've updated structure.json:
+1. The system will detect the changes
+2. Validation will run automatically
+3. Process repeats until all sections are ≤{max_tokens} tokens
+4. When all valid, proceed to Phase 2 (skill generation)
+
+---
+
+**Ready to begin?** Start by analyzing the first oversized section above and updating structure.json with semantic subdivisions.
+"""
+
+    # Write request file
+    with open(request_file, 'w', encoding='utf-8') as f:
+        f.write(request_content)
+
+    return request_file
+
+
 def run_analysis_phase(
     name: str,
     sources: List[str],
@@ -1022,6 +1238,34 @@ Examples:
                     max_tokens=args.max_tokens,
                     verbose=False
                 )
+
+                # If oversized sections found, create subdivision request
+                if not all_valid and oversized_sections:
+                    print(f"\n{'=' * 60}")
+                    print("SEMANTIC SUBDIVISION REQUIRED")
+                    print(f"{'=' * 60}")
+                    print()
+                    print(f"⚠️  Found {len(oversized_sections)} oversized section(s) that need subdivision.")
+                    print()
+
+                    # Create subdivision request for Claude Code
+                    subdivision_request = create_subdivision_request(
+                        workspace=workspace,
+                        oversized_sections=oversized_sections,
+                        structure_path=structure_path,
+                        max_tokens=args.max_tokens
+                    )
+
+                    print(f"📝 Subdivision request created: {subdivision_request}")
+                    print()
+                    print("NEXT STEPS:")
+                    print("1. Read the subdivision request above")
+                    print("2. Analyze oversized sections and determine semantic subdivisions")
+                    print("3. Update structure.json by adding 'children' to oversized sections")
+                    print(f"4. Re-run validation: python3 {sys.argv[0]} --name '{args.name}' --analyze-only")
+                    print()
+                    print("This process will repeat until all leaf sections are ≤{} tokens.".format(args.max_tokens))
+                    print()
             else:
                 print(f"\n⚠️  Note: structure.json not yet created.")
                 print(f"After creating {structure_path}, validation will run automatically.")

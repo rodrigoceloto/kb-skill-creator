@@ -13,7 +13,7 @@ This skill creates knowledge bases using **semantic analysis** rather than mecha
 
 When the user requests a knowledge base, use this two-phase semantic analysis process:
 
-**Phase 1: Semantic Analysis**
+**Phase 1: Semantic Analysis (Iterative)**
 ```bash
 python3 .claude/skills/kb-generator/scripts/generate_kb.py \
   --name "kb-name" \
@@ -24,15 +24,29 @@ python3 .claude/skills/kb-generator/scripts/generate_kb.py \
 
 This creates an analysis workspace and ANALYSIS_REQUEST.md. You (Claude Code) should then:
 
-1. Read the ANALYSIS_REQUEST.md file
-2. Read the source documents from the workspace/samples/ directory
-3. Perform progressive refinement analysis:
-   - Identify document type and language
-   - Find major structural divisions (TÍTULO, Chapter, Section, etc.)
-   - Recursively identify subdivisions
-   - Create semantic boundaries at logical points
-4. Create structure.json with the hierarchical structure
-5. **Automatic validation** runs to check all leaf sections are ≤~5000 tokens
+1. **Initial Analysis:**
+   - Read ANALYSIS_REQUEST.md file
+   - Read source documents from workspace/samples/ directory
+   - Perform progressive refinement analysis:
+     - Identify document type and language
+     - Find major structural divisions (TÍTULO, Chapter, Section, etc.)
+     - Recursively identify subdivisions
+     - Create semantic boundaries at logical points
+   - Create structure.json with the hierarchical structure
+
+2. **Automatic Validation:** System checks all leaf sections are ≤~5000 tokens
+
+3. **Iterative Subdivision (if needed):**
+   - If oversized sections found, system creates SUBDIVISION_REQUEST.md
+   - Read SUBDIVISION_REQUEST.md for details on oversized sections
+   - For each oversized section:
+     - Extract and analyze section content
+     - Identify semantic subdivisions (Incisos, §§, subsections, etc.)
+     - Update structure.json by adding `children` to oversized section
+   - Re-run with `--analyze-only` to validate subdivisions
+   - **Repeat** until all leaf sections are ≤~5000 tokens
+
+This iterative process ensures semantically complete chunks at optimal size.
 
 **Phase 2: Skill Generation**
 ```bash
@@ -83,6 +97,8 @@ All generated knowledge bases provide:
 - **Context preservation**: Each section knows its place in the hierarchy
 - **Type classification**: Sections tagged by semantic purpose
 - **Token-optimized**: Aims for ~5000 tokens but prioritizes completeness
+- **Iterative subdivision**: Automatic detection and guided subdivision of oversized sections
+- **Whitespace-robust extraction**: Handles marker matching despite spacing variations
 
 ## Example Workflow
 
@@ -97,16 +113,30 @@ python3 .claude/skills/kb-generator/scripts/generate_kb.py \
   --analyze-only
 ```
 
-Then, as Claude Code, you should:
+**Initial Analysis (Claude Code):**
 
-1. Read `.claude/skills/constituicao-federal-brasil_analysis/ANALYSIS_REQUEST.md`
-2. Read the PDF content from the samples directory
-3. Analyze and identify structure:
+1. Read `ANALYSIS_REQUEST.md`
+2. Read PDF content from samples directory
+3. Identify structure:
    - Document type: legal_document
    - Language: pt-BR
-   - Major sections: PREÂMBULO, TÍTULO I, TÍTULO II, etc.
+   - Major sections: PREÂMBULO, TÍTULO I-IX
    - Subsections: CAPÍTULO, SEÇÃO, Artigo
-4. Create `.claude/skills/constituicao-federal-brasil_analysis/structure.json`
+4. Create initial `structure.json`
+
+**Automatic validation detects oversized sections** → Creates `SUBDIVISION_REQUEST.md`
+
+**Iterative Subdivision (Claude Code):**
+
+5. Read `SUBDIVISION_REQUEST.md` (lists 9 oversized articles)
+6. For each oversized article (e.g., Art. 5º - 8000 tokens):
+   - Extract full article content
+   - Identify subdivisions: Caput, Incisos I-LXXVIII, §§
+   - Group semantically: Incisos I-X, XI-XX, etc.
+   - Update structure.json with children
+7. Re-run to validate: `python3 ... --analyze-only`
+8. Repeat if any subdivisions still oversized
+9. Final validation: All leaf sections ≤5000 tokens ✓
 
 ```bash
 # Phase 2: Generate the skill
@@ -115,7 +145,7 @@ python3 .claude/skills/kb-generator/scripts/generate_kb.py \
   --from-structure ".claude/skills/constituicao-federal-brasil_analysis/structure.json"
 ```
 
-Result: ~80-120 semantic chunks (vs 235 mechanical chunks), organized by actual constitutional structure.
+**Result:** ~80-120 semantic chunks (vs 235 mechanical chunks), organized by actual constitutional structure with all sections properly sized.
 
 ## Progressive Refinement Guidelines
 

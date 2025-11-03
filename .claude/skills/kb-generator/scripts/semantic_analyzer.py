@@ -54,6 +54,76 @@ def extract_document_sample(text: str, sample_size: int = 10000) -> Dict[str, st
     }
 
 
+def normalize_whitespace_for_matching(text: str) -> str:
+    """
+    Normalize whitespace in text for robust marker matching.
+    Collapses multiple spaces/tabs/newlines into single spaces.
+
+    Args:
+        text: Text to normalize
+
+    Returns:
+        Normalized text with single spaces
+    """
+    return re.sub(r'\s+', ' ', text.strip())
+
+
+def find_marker_position(full_text: str, marker: str, start_from: int = 0) -> int:
+    """
+    Find marker position in text with whitespace normalization.
+
+    Args:
+        full_text: Text to search in
+        marker: Marker text to find
+        start_from: Position to start searching from
+
+    Returns:
+        Position of marker in full_text, or -1 if not found
+    """
+    # First try exact match (fast path)
+    exact_pos = full_text.find(marker, start_from)
+    if exact_pos != -1:
+        return exact_pos
+
+    # If exact match fails, try normalized matching
+    # Create regex pattern that allows flexible whitespace
+    # Escape special regex characters in the marker
+    escaped_marker = re.escape(marker)
+    # Replace escaped spaces with flexible whitespace pattern
+    flexible_pattern = escaped_marker.replace(r'\ ', r'\s+')
+
+    try:
+        match = re.search(flexible_pattern, full_text[start_from:], re.MULTILINE)
+        if match:
+            return start_from + match.start()
+    except re.error:
+        # If regex fails, fall back to normalized string search
+        normalized_marker = normalize_whitespace_for_matching(marker)
+
+        # Search through text in chunks to find normalized match
+        search_pos = start_from
+        while search_pos < len(full_text):
+            # Extract a window of text that could contain the marker
+            window_size = len(marker) * 3  # Allow for extra whitespace
+            window_end = min(search_pos + window_size, len(full_text))
+            window = full_text[search_pos:window_end]
+
+            normalized_window = normalize_whitespace_for_matching(window)
+
+            if normalized_marker in normalized_window:
+                # Found a potential match, now find exact position
+                # Search character by character to find where match starts
+                for offset in range(len(window)):
+                    test_window = full_text[search_pos + offset:window_end]
+                    if normalize_whitespace_for_matching(test_window).startswith(normalized_marker):
+                        return search_pos + offset
+
+            # Move search position forward
+            search_pos += max(1, window_size // 2)
+
+    return -1
+
+
 def extract_section_content(
     full_text: str,
     start_marker: str,
@@ -62,6 +132,7 @@ def extract_section_content(
 ) -> Tuple[str, int, int]:
     """
     Extract content between start and end markers from text.
+    Uses whitespace-normalized matching to handle spacing variations.
 
     Args:
         full_text: Complete document text
@@ -72,14 +143,14 @@ def extract_section_content(
     Returns:
         Tuple of (extracted_content, start_position, end_position)
     """
-    # Find start position
-    start_pos = full_text.find(start_marker)
+    # Find start position with whitespace normalization
+    start_pos = find_marker_position(full_text, start_marker)
     if start_pos == -1:
         raise ValueError(f"Start marker not found: {start_marker[:50]}...")
 
     # Find end position
     if end_marker:
-        end_pos = full_text.find(end_marker, start_pos + len(start_marker))
+        end_pos = find_marker_position(full_text, end_marker, start_pos + len(start_marker))
         if end_pos == -1:
             # If end marker not found, take until end of document
             end_pos = len(full_text)
@@ -87,8 +158,16 @@ def extract_section_content(
             # If not including markers, end before the end marker
             pass
         else:
-            # Include the end marker
-            end_pos += len(end_marker)
+            # Include the end marker (need to find actual length in document)
+            # Find where the end marker actually ends in the text
+            marker_start = end_pos
+            marker_end = marker_start + len(end_marker)
+            # Extend to cover any whitespace variations
+            while marker_end < len(full_text) and full_text[marker_end].isspace():
+                if full_text[marker_end] == '\n':
+                    break  # Stop at newline
+                marker_end += 1
+            end_pos = marker_end
     else:
         # No end marker specified, take until end
         end_pos = len(full_text)
