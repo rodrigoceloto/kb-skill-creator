@@ -1,0 +1,8 @@
+# Knowledge Base Generator Requirements
+
+# PDF processing (choose one)
+pypdf>=3.0.0
+# Alternative: PyPDF2>=3.0.0
+
+# Optional: Better token counting (uncomment if you want more accurate token counts)
+# tiktoken>=0.5.0
