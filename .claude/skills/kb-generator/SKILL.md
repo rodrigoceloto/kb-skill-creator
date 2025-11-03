@@ -157,7 +157,7 @@ python3 .claude/skills/kb-generator/scripts/generate_kb.py \
   --from-structure ".claude/skills/constituicao-federal-brasil_analysis/structure.json"
 ```
 
-**Result:** ~80-120 semantic chunks (vs 235 mechanical chunks), organized by actual constitutional structure with all sections properly sized.
+**Result:** Semantically-organized knowledge base following the document's natural hierarchical structure, with all sections properly sized (≤5000 tokens).
 
 ## Progressive Refinement Guidelines
 
