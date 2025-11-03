@@ -9,9 +9,9 @@ This skill creates knowledge bases using **semantic analysis** rather than mecha
 
 ## Two-Phase Process
 
-### Recommended: Semantic Analysis Mode (Best Quality)
+### Semantic Analysis Mode
 
-When the user requests a knowledge base, use this two-phase process:
+When the user requests a knowledge base, use this two-phase semantic analysis process:
 
 **Phase 1: Semantic Analysis**
 ```bash
