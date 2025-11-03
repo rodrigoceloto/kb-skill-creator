@@ -316,6 +316,38 @@ You (Claude Code) are requested to analyze the source document(s) and create a s
 
 Please perform a **progressive refinement analysis** to identify the logical, hierarchical structure of these documents.
 
+### Strategy for Large Documents (>100K tokens)
+
+If the source document(s) exceed 100,000 tokens (~65,000 words), use this strategic approach:
+
+1. **Initial sampling** - Read strategically:
+   - First 1000 lines (beginning)
+   - Middle 500 lines (use offset)
+   - Last 500 lines
+   - Do NOT repeatedly read the entire document
+
+2. **Identify structure patterns** from samples:
+   - What markers define sections? (TÍTULO, Chapter, ###, etc.)
+   - What is the hierarchical pattern?
+   - Are there repetitive structures?
+
+3. **Use targeted search** to find all section markers:
+   - Use Grep tool to find all instances of structural markers
+   - Example: `Grep(pattern="^(TÍTULO|CAPÍTULO|Art\\. \\d+)", output_mode="content")`
+   - Verify marker uniqueness and count
+
+4. **Validate marker candidates** before creating full structure:
+   - Ensure markers are unique or contextually specific
+   - Check that end markers come after start markers
+   - Test extraction on 2-3 sample sections
+
+5. **Progressive validation** - Build structure level by level:
+   - Validate top-level structure first
+   - Then subdivide one level at a time
+   - Run validation at each level
+
+**Important:** For large documents, efficiency is critical. Use targeted reads and searches instead of multiple full reads.
+
 ### Step 1: Document Type & Top-Level Structure
 
 1. Read samples from the document(s) to understand:
@@ -351,6 +383,48 @@ For sections that are too large (>~{max_tokens} tokens), identify logical subdiv
 - You reach atomic level (section cannot be meaningfully subdivided)
 
 ⚠️ **Important**: Do not stop at first-level subdivision if sections are still oversized. Keep subdividing recursively until leaf sections meet the token target.
+
+### Step 3.5: Validate Marker Boundaries (CRITICAL)
+
+Before creating the full structure.json, validate that your markers correctly delimit sections:
+
+**Validation Protocol:**
+
+1. **Pick 3-5 sample sections** from different parts of your planned structure
+2. **Manually test extraction** for each sample:
+   - Use extract_section_content() or similar to extract content between markers
+   - Verify the extracted content matches your expectations
+   - Check token count matches your estimate
+
+3. **Check for overlaps** between adjacent sections:
+   - Extract content for section N
+   - Extract content for section N+1
+   - Ensure no content appears in both extractions
+   - Verify end_marker of N comes BEFORE start_marker of N+1 in the document
+
+4. **Verify marker uniqueness**:
+   - If using generic patterns (like "Art. 5"), ensure context makes them unique
+   - Use Grep to check if markers appear multiple times
+   - Add more context to markers if needed
+
+5. **Test boundary cases**:
+   - First section in document
+   - Last section in document
+   - Sections at different hierarchical levels
+
+**If validation fails:** STOP and revise your markers. Do not proceed to create the full structure.json with invalid markers.
+
+**Example validation check:**
+```python
+# Extract two adjacent sections
+content_1 = extract_between("TÍTULO I", "TÍTULO II")
+content_2 = extract_between("TÍTULO II", "TÍTULO III")
+
+# Verify:
+# - content_1 doesn't contain "TÍTULO II" content
+# - content_2 starts at "TÍTULO II"
+# - No overlap between sections
+```
 
 ### Step 4: Create Structure JSON
 
@@ -423,14 +497,142 @@ Output the complete hierarchical structure as JSON in this format:
 - [ ] Oversized sections (>{max_tokens} tokens) subdivided where possible
 - [ ] Any atomic oversized sections documented in analyzer_notes
 - [ ] Token estimates are accurate (not just placeholders)
+- [ ] **Marker validation:** Start/end markers are unique and specific
+- [ ] **Marker validation:** No overlapping sections (verified via test extraction)
+- [ ] **Marker validation:** End marker of section N comes before start marker of section N+1
+- [ ] **Marker validation:** All markers exist in source document (verified via Grep)
 
-## Important Notes
+## Marker Creation Best Practices
+
+Creating precise, non-overlapping markers is CRITICAL for correct chunk generation.
+
+### Rule 1: Markers Must Be Unique and Specific
+
+**BAD Example (ambiguous):**
+```json
+"start_marker": "CHAPTER 1",
+"end_marker": "Section 3"  // Might appear in multiple chapters!
+```
+
+**GOOD Example (specific with context):**
+```json
+"start_marker": "CHAPTER 1: INTRODUCTION",
+"end_marker": "CHAPTER 2: METHODOLOGY"  // Next chapter start
+```
+
+### Rule 2: Use Next-Section Start as End Marker (CRITICAL)
+
+The most reliable way to avoid overlaps is to use the start marker of the NEXT section at the same level:
+
+```json
+{{
+  "id": "section_001",
+  "title": "TÍTULO I – Dos Princípios Fundamentais",
+  "start_marker": "TÍTULO I",
+  "end_marker": "TÍTULO II"  // Start of next TÍTULO, not an article number
+}}
+```
+
+This ensures sections never overlap and boundaries are clean.
+
+### Rule 3: Include Contextual Text for Repetitive Structures
+
+For documents with repeated patterns (legal documents, numbered lists), include enough context to make markers unique:
+
+**BAD (too generic for legal documents):**
+```json
+"start_marker": "Art. 5º",
+"end_marker": "Art. 6º"
+```
+
+**GOOD (includes contextual text):**
+```json
+"start_marker": "Art. 5º Todos são iguais perante a lei",
+"end_marker": "Art. 6º São direitos sociais"
+```
+
+### Rule 4: Handle End-of-Document Sections
+
+For the last section in a document or hierarchy level, use `null` as end_marker or a clear final marker:
+
+```json
+{{
+  "id": "section_last",
+  "title": "Final Dispositions",
+  "start_marker": "DISPOSIÇÕES FINAIS",
+  "end_marker": null  // Extends to end of document
+}}
+```
+
+### Important General Notes
 
 - **Semantic boundaries**: Split based on MEANING, not just token count
 - **Complete thoughts**: Each chunk should be a complete logical unit
 - **Preserve hierarchy**: Maintain parent-child relationships as they exist in the document
-- **Accurate markers**: Start/end markers must be exact text that can be found in the document
 - **Token-optimized**: Aim for ~{max_tokens} tokens but prioritize semantic completeness
+
+## Example: Legal Document Structure (Constitution, Laws)
+
+Legal documents require special attention due to repetitive structures and cross-references:
+
+**Hierarchical structure example:**
+```json
+{{
+  "id": "titulo_02",
+  "title": "TÍTULO II – Dos Direitos e Garantias Fundamentais",
+  "start_marker": "TÍTULO II",
+  "end_marker": "TÍTULO III",  // Next TÍTULO, ensures clean boundary
+  "children": [
+    {{
+      "id": "titulo_02_cap_01",
+      "title": "CAPÍTULO I – Dos Direitos Individuais",
+      "start_marker": "CAPÍTULO I",
+      "end_marker": "CAPÍTULO II",  // Next CAPÍTULO
+      "children": [
+        {{
+          "id": "titulo_02_cap_01_art_05",
+          "title": "Art. 5º - Igualdade perante a lei",
+          "start_marker": "Art. 5º Todos são iguais perante a lei",
+          "end_marker": "Art. 6º São direitos sociais",  // Next article with context
+          "children": []  // Leaf section
+        }}
+      ]
+    }}
+  ]
+}}
+```
+
+**Key points for legal documents:**
+- Use next-section headers as end markers (TÍTULO → TÍTULO, CAPÍTULO → CAPÍTULO)
+- Include first words of article text for uniqueness ("Art. 5º Todos são...")
+- Never use just article numbers as markers ("Art. 5º" appears in references!)
+- Subdivide long articles into paragraphs if needed
+
+## Common Pitfalls to Avoid
+
+### 1. Reading Large Documents Multiple Times
+- ❌ DON'T repeatedly read the entire document
+- ✅ DO use strategic sampling + targeted Grep searches
+
+### 2. Using Ambiguous or Generic Markers
+- ❌ DON'T use patterns like "Section 1", "Art. 5", or "Chapter 2"
+- ✅ DO include context: "Section 1: Introduction", "Art. 5º Todos são iguais"
+
+### 3. Not Validating Markers Before Finalizing
+- ❌ DON'T create full structure without testing markers on samples
+- ✅ DO validate 3-5 sections before proceeding (Step 3.5)
+
+### 4. Overlapping Section Boundaries
+- ❌ DON'T use end markers that appear inside the section
+- ✅ DO use next-section start as end marker to ensure clean boundaries
+
+### 5. Estimating Tokens Without Actual Extraction
+- ❌ DON'T guess token counts
+- ✅ DO extract actual content between markers and calculate precise estimates
+
+### 6. Ignoring Document-Specific Patterns
+- ❌ DON'T apply generic structure to specialized documents
+- ✅ DO analyze the specific hierarchical pattern (legal, technical, academic)
 
 ## Output
 
