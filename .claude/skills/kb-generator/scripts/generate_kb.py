@@ -115,6 +115,9 @@ Navigate through the knowledge base using this semantic structure:
 
 """
 
+    # Create lookup map for actual token counts
+    chunk_tokens = {chunk['id']: chunk['tokens'] for chunk in chunks}
+
     # Build hierarchical tree
     def render_section(node, depth=0):
         indent = "  " * depth
@@ -132,8 +135,17 @@ Navigate through the knowledge base using this semantic structure:
 
         # Add type and token info
         semantic_type = node.get('semantic_type', 'section')
-        tokens = node.get('estimated_tokens', 0)
-        result += f" *({semantic_type}, ~{tokens} tokens)*\n"
+
+        # Use actual tokens from chunks for leaf nodes (those with chunk files)
+        # Use estimated tokens (with ~) for parent nodes (no chunk files)
+        if has_children:
+            # Parent node - use estimated tokens with ~ prefix
+            estimated = node.get('estimated_tokens', 0)
+            result += f" *({semantic_type}, ~{estimated} tokens)*\n"
+        else:
+            # Leaf node - use actual tokens from extraction
+            actual_tokens = chunk_tokens.get(section_id, node.get('estimated_tokens', 0))
+            result += f" *({semantic_type}, {actual_tokens} tokens)*\n"
 
         # Process children
         for child in node.get('children', []):
