@@ -656,6 +656,17 @@ content_2 = extract_between("TÍTULO II", "TÍTULO III")
 
 ### Step 4: Create Structure JSON
 
+**IMPORTANT**: Use **line numbers** as the primary extraction method. Line numbers eliminate ambiguity and ensure precise section extraction.
+
+**How to get line numbers:**
+1. Use Grep with `-n` flag to show line numbers:
+   ```
+   Grep(pattern="^TÍTULO", output_mode="content", -n=True)
+   # Output: "249:TÍTULO II – Dos Direitos..."
+   ```
+2. Extract line number from output (249 in above example)
+3. Store as `start_line` (0-indexed, so 249 becomes start_line: 248)
+
 Output the complete hierarchical structure as JSON in this format:
 
 ```json
@@ -668,8 +679,9 @@ Output the complete hierarchical structure as JSON in this format:
       "title": "PREÂMBULO",
       "level": 0,
       "semantic_type": "preamble",
-      "start_marker": "Nós, representantes do povo brasileiro",
-      "end_marker": "promulgamos a seguinte Constituição",
+      "start_line": 0,
+      "end_line": 15,
+      "start_marker": "Nós, representantes do povo brasileiro",  // Optional: for reference
       "estimated_tokens": 150,
       "children": []
     }},
@@ -678,8 +690,9 @@ Output the complete hierarchical structure as JSON in this format:
       "title": "TÍTULO I – DOS PRINCÍPIOS FUNDAMENTAIS",
       "level": 1,
       "semantic_type": "title",
-      "start_marker": "TÍTULO I",
-      "end_marker": "Art. 4º",
+      "start_line": 16,
+      "end_line": 50,
+      "start_marker": "TÍTULO I",  // Optional: for reference
       "estimated_tokens": 800,
       "children": [
         {{
@@ -687,8 +700,9 @@ Output the complete hierarchical structure as JSON in this format:
           "title": "Art. 1º",
           "level": 2,
           "semantic_type": "article",
-          "start_marker": "Art. 1º A República Federativa",
-          "end_marker": "V - o pluralismo político.",
+          "start_line": 17,
+          "end_line": 25,
+          "start_marker": "Art. 1º A República Federativa",  // Optional: for reference
           "estimated_tokens": 120,
           "children": []
         }}
@@ -699,10 +713,16 @@ Output the complete hierarchical structure as JSON in this format:
     "total_sections": 156,
     "max_depth": 4,
     "analysis_date": "2025-11-03",
-    "analyzer_notes": "Portuguese legal document with 4-level hierarchy: TÍTULO → CAPÍTULO → SEÇÃO → Artigo. Some articles are quite long and split into parts."
+    "analyzer_notes": "Legal document with 4-level hierarchy. Line numbers are 0-indexed (line 1 in editor = line 0 in structure)."
   }}
 }}
 ```
+
+**Line Number Notes:**
+- `start_line`: 0-indexed, inclusive (first line of section)
+- `end_line`: 0-indexed, exclusive (first line of NEXT section)
+- Example: `start_line: 10, end_line: 20` extracts lines 10-19 (10 lines total)
+- `start_marker`: Optional field for human reference, NOT used for extraction
 
 ### Step 5: Validate Chunk Sizes
 
@@ -725,14 +745,23 @@ Output the complete hierarchical structure as JSON in this format:
 - [ ] Oversized sections (>{max_tokens} tokens) subdivided where possible
 - [ ] Any atomic oversized sections documented in analyzer_notes
 - [ ] Token estimates are accurate (not just placeholders)
-- [ ] **Marker validation:** Start/end markers are unique and specific
-- [ ] **Marker validation:** No overlapping sections (verified via test extraction)
-- [ ] **Marker validation:** End marker of section N comes before start marker of section N+1
-- [ ] **Marker validation:** All markers exist in source document (verified via Grep)
+- [ ] **Line number validation:** All sections have start_line and end_line defined
+- [ ] **Line number validation:** No overlapping ranges (end_line of section N ≤ start_line of section N+1)
+- [ ] **Line number validation:** All line numbers are within document bounds (0 to total_lines)
 
-## Marker Creation Best Practices
+## Using Line Numbers (Preferred Method)
 
-Creating precise, non-overlapping markers is CRITICAL for correct chunk generation.
+**Line numbers are the PRIMARY extraction method** because they eliminate all ambiguity.
+
+### Benefits of Line Numbers:
+- ✅ **100% precise** - No ambiguity, always extracts correct section
+- ✅ **Faster extraction** - Direct line range, no marker search
+- ✅ **Easier validation** - Simple range overlap checks
+- ✅ **Better debugging** - "Check lines 123-456" is clear
+
+### Optional: Marker Creation Best Practices
+
+Markers are OPTIONAL and used only for human reference. If you choose to include them:
 
 ### Rule 1: Markers Must Be Unique and Specific
 

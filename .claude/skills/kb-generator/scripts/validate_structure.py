@@ -124,37 +124,38 @@ def validate_structure(
 
     for leaf in all_leaf_sections:
         try:
-            # Extract actual content
-            # Prefer line-based extraction if available
+            # Extract actual content using line numbers (REQUIRED)
             start_line = leaf.get('start_line')
             end_line = leaf.get('end_line')
 
-            if start_line is not None and end_line is not None:
-                # Line-based extraction (more accurate)
-                lines = full_content.split('\n')
-                content_lines = lines[start_line:end_line]
-                content = '\n'.join(content_lines)
-            else:
-                # Fallback to marker-based extraction
-                content, start_pos, end_pos = extract_section_content(
-                    full_content,
-                    leaf['start_marker'],
-                    leaf['end_marker'],
-                    include_markers=True
+            if start_line is None or end_line is None:
+                raise ValueError(
+                    f"Section '{leaf['id']}' missing required fields: start_line and/or end_line. "
+                    f"Line numbers are required for extraction. Please update structure.json to include "
+                    f"'start_line' and 'end_line' for all sections."
                 )
 
-            # Calculate actual tokens
-            actual_tokens = estimate_tokens(content)
+            # Line-based extraction (precise and unambiguous)
+            from semantic_analyzer import extract_by_line_numbers
+            content, actual_tokens = extract_by_line_numbers(
+                full_content,
+                start_line,
+                end_line
+            )
 
             # Check against threshold
             is_valid = actual_tokens <= max_tokens
+
+            # Add content preview (first 200 chars) for reference
+            preview = content[:200].strip() + "..." if len(content) > 200 else content.strip()
 
             validation_result = {
                 **leaf,
                 'actual_tokens': actual_tokens,
                 'estimated_tokens': leaf['estimated_tokens'],
                 'is_valid': is_valid,
-                'overflow': max(0, actual_tokens - max_tokens)
+                'overflow': max(0, actual_tokens - max_tokens),
+                'preview': preview  # For human reference in subdivision requests
             }
 
             if is_valid:

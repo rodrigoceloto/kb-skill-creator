@@ -183,6 +183,73 @@ def extract_section_content(
     return content, start_pos, end_pos
 
 
+def extract_by_line_numbers(
+    full_text: str,
+    start_line: int,
+    end_line: int
+) -> Tuple[str, int]:
+    """
+    Extract content between line numbers (zero-indexed).
+
+    This is the preferred extraction method as it eliminates marker ambiguity.
+    Line numbers are precise and unique, preventing extraction of wrong sections.
+
+    Args:
+        full_text: Complete document text
+        start_line: Starting line number (0-indexed, inclusive)
+        end_line: Ending line number (0-indexed, exclusive)
+
+    Returns:
+        Tuple of (extracted_content, actual_token_count)
+
+    Example:
+        # Extract lines 10-20 (lines 10-19 inclusive)
+        content, tokens = extract_by_line_numbers(text, 10, 20)
+    """
+    lines = full_text.split('\n')
+
+    # Validate line numbers
+    total_lines = len(lines)
+    if start_line < 0:
+        raise ValueError(f"start_line must be >= 0, got {start_line}")
+    if end_line > total_lines:
+        raise ValueError(f"end_line {end_line} exceeds document length {total_lines}")
+    if start_line >= end_line:
+        raise ValueError(f"start_line {start_line} must be < end_line {end_line}")
+
+    # Extract lines
+    content_lines = lines[start_line:end_line]
+    content = '\n'.join(content_lines)
+
+    # Calculate tokens
+    tokens = estimate_tokens(content)
+
+    return content, tokens
+
+
+def find_line_number_for_pattern(text: str, pattern: str, is_regex: bool = False) -> Optional[int]:
+    """
+    Find the line number where a pattern first appears.
+
+    Args:
+        text: Text to search
+        pattern: Pattern to find (string or regex)
+        is_regex: Whether pattern is a regular expression
+
+    Returns:
+        Line number (0-indexed) or None if not found
+
+    Example:
+        line_num = find_line_number_for_pattern(text, "^TÍTULO II", is_regex=True)
+        # Returns: 249 (line 250 in 1-indexed editors)
+    """
+    occurrences = find_all_occurrences(text, pattern, is_regex)
+    if occurrences:
+        # Return 0-indexed line number (editors use 1-indexed)
+        return occurrences[0]['line_number'] - 1
+    return None
+
+
 def find_all_occurrences(text: str, pattern: str, is_regex: bool = False) -> List[Dict[str, any]]:
     """
     Find all occurrences of a pattern in text.
