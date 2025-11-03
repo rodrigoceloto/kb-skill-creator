@@ -32,6 +32,7 @@ This creates an analysis workspace and ANALYSIS_REQUEST.md. You (Claude Code) sh
    - Recursively identify subdivisions
    - Create semantic boundaries at logical points
 4. Create structure.json with the hierarchical structure
+5. **Automatic validation** runs to check all leaf sections are ≤~5000 tokens
 
 **Phase 2: Skill Generation**
 ```bash

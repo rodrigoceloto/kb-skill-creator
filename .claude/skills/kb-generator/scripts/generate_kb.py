@@ -436,7 +436,21 @@ Output the complete hierarchical structure as JSON in this format:
 
 Save your structure analysis to: `{workspace / 'structure.json'}`
 
-When complete, the script will automatically proceed to Phase 2 (skill generation).
+### Automatic Validation
+
+**After you create structure.json, the script will automatically validate it** to ensure all leaf sections meet the token target.
+
+The validation will:
+- Check all leaf sections against the ~{max_tokens} token threshold
+- Report any oversized sections that need subdivision
+- Provide actionable feedback if issues are found
+
+If validation detects oversized sections:
+1. Review the reported sections
+2. Update structure.json to subdivide them
+3. The script will validate again
+
+**Important:** If a section cannot be meaningfully subdivided (atomic section), document it in the `analyzer_notes` metadata explaining why it cannot be split.
 
 ---
 
@@ -778,6 +792,26 @@ Examples:
                 workspace=workspace
             )
 
+            # Automatically validate structure if it exists
+            if structure_path.exists():
+                print(f"\n{'=' * 60}")
+                print("VALIDATING STRUCTURE")
+                print(f"{'=' * 60}")
+                print()
+
+                # Import validation function
+                sys.path.insert(0, str(Path(__file__).parent))
+                from validate_structure import validate_structure
+
+                all_valid, valid_sections, oversized_sections = validate_structure(
+                    structure_path,
+                    max_tokens=args.max_tokens,
+                    verbose=False
+                )
+            else:
+                print(f"\n⚠️  Note: structure.json not yet created.")
+                print(f"After creating {structure_path}, validation will run automatically.")
+
             print(f"\n{'=' * 60}")
             print("ANALYSIS COMPLETE!")
             print(f"{'=' * 60}")
@@ -792,6 +826,26 @@ Examples:
             print("PHASE 2: SKILL GENERATION FROM STRUCTURE")
             print("=" * 60)
             print()
+
+            # Validate structure before generating
+            print("=" * 60)
+            print("VALIDATING STRUCTURE")
+            print("=" * 60)
+            print()
+
+            sys.path.insert(0, str(Path(__file__).parent))
+            from validate_structure import validate_structure
+
+            all_valid, valid_sections, oversized_sections = validate_structure(
+                Path(args.from_structure),
+                max_tokens=args.max_tokens,
+                verbose=False
+            )
+
+            if not all_valid:
+                print(f"\n⚠️  Warning: Structure has {len(oversized_sections)} oversized section(s).")
+                print("Generation will proceed, but oversized sections may impact performance.")
+                print()
 
             skill_path = generate_from_structure(
                 name=args.name,
