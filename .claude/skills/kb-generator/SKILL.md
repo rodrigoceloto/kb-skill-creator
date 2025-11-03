@@ -106,26 +106,26 @@ All generated knowledge bases provide:
 
 ## Example Workflow
 
-**Creating a Brazilian Constitution knowledge base:**
+**Creating an API documentation knowledge base:**
 
 ```bash
 # Phase 1: Start semantic analysis
 python3 .claude/skills/kb-generator/scripts/generate_kb.py \
-  --name "constituicao-federal-brasil" \
-  --sources "Constituicao_Federal_2025.pdf" \
-  --description "Brazilian Federal Constitution with amendments" \
+  --name "payment-api-docs" \
+  --sources "payment-api-documentation.pdf" \
+  --description "Complete API documentation for payment processing platform" \
   --analyze-only
 ```
 
 **Initial Analysis (Claude Code):**
 
 1. Read `ANALYSIS_REQUEST.md`
-2. Read PDF content from samples directory
+2. Read documentation from samples directory
 3. Identify structure:
-   - Document type: legal_document
-   - Language: pt-BR
-   - Major sections: PREÂMBULO, TÍTULO I-IX
-   - Subsections: CAPÍTULO, SEÇÃO, Artigo
+   - Document type: technical_documentation
+   - Language: en
+   - Major sections: Introduction, Authentication, Core Concepts, API Reference
+   - Subsections: Endpoints grouped by resource (Payments, Customers, Refunds)
 4. Create initial `structure.json`
 
 **Automatic validation detects oversized sections** → Creates `SUBDIVISION_REQUEST.md`
@@ -133,11 +133,11 @@ python3 .claude/skills/kb-generator/scripts/generate_kb.py \
 **Iterative Subdivision (Claude Code) - Two Options:**
 
 **Option A: Refine in Phase 1**
-5. Read `SUBDIVISION_REQUEST.md` (lists 9 oversized articles)
-6. For each oversized article (e.g., Art. 5º - 8000 tokens):
-   - Extract full article content
-   - Identify subdivisions: Caput, Incisos I-LXXVIII, §§
-   - Group semantically: Incisos I-X, XI-XX, etc.
+5. Read `SUBDIVISION_REQUEST.md` (lists oversized sections)
+6. For each oversized section (e.g., "API Reference - Payments" with 12,000 tokens):
+   - Extract full section content
+   - Identify logical subdivisions: Create Payment, List Payments, Get Payment, Update Payment, etc.
+   - Group related endpoints semantically
    - Update structure.json with children
 7. Re-run to validate: `python3 ... --analyze-only`
 8. Repeat if any subdivisions still oversized
@@ -153,11 +153,11 @@ python3 .claude/skills/kb-generator/scripts/generate_kb.py \
 ```bash
 # Phase 2: Generate the skill
 python3 .claude/skills/kb-generator/scripts/generate_kb.py \
-  --name "constituicao-federal-brasil" \
-  --from-structure ".claude/skills/constituicao-federal-brasil_analysis/structure.json"
+  --name "payment-api-docs" \
+  --from-structure ".claude/skills/payment-api-docs_analysis/structure.json"
 ```
 
-**Result:** Semantically-organized knowledge base following the document's natural hierarchical structure, with all sections properly sized (≤5000 tokens).
+**Result:** Semantically-organized knowledge base following the documentation's natural hierarchical structure, with all sections properly sized (≤5000 tokens).
 
 ## Progressive Refinement Guidelines
 
