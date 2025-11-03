@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Backup files
+*.backup
+*.bak
+*.bak2
+*~
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated knowledge bases (examples should be documented, not committed)
+.claude/skills/test-*
+.claude/skills/example-*
+.claude/skills/*_analysis/
+
+# Keep only the kb-generator skill itself
+!.claude/skills/kb-generator/
