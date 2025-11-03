@@ -103,6 +103,7 @@ All generated knowledge bases provide:
 - **Token-optimized**: Aims for ~5000 tokens but prioritizes completeness
 - **Iterative subdivision**: Automatic detection and guided subdivision of oversized sections
 - **Line number precision**: Uses line ranges for 100% accurate extraction (eliminates marker ambiguity)
+- **Automatic token estimation**: Calculates estimated tokens based on document density (no manual counting needed)
 
 ## Example Workflow
 
@@ -171,13 +172,17 @@ When performing semantic analysis:
    - Line numbers eliminate marker ambiguity
    - More precise and reliable than text markers
    - Optional: Include `start_marker` field for human reference
-4. **Recursive subdivision**: For large sections, find logical subsections
+4. **Token estimation is automatic**: You do NOT need to calculate `estimated_tokens`
+   - System automatically calculates based on document density (tokens/line)
+   - Formula: `estimated_tokens = (end_line - start_line) × tokens_per_line`
+   - You only provide `start_line` and `end_line`
+5. **Recursive subdivision**: For large sections, find logical subsections
    - ⚠️ Keep subdividing until ALL leaf sections are ≤~5000 tokens
    - Don't stop at first-level subdivision if sections are still oversized
-5. **Semantic boundaries**: Split based on meaning and document structure
-6. **Atomic sections**: Stop dividing when sections are complete logical units
-7. **Validate chunk sizes**:
+6. **Semantic boundaries**: Split based on meaning and document structure
+7. **Atomic sections**: Stop dividing when sections are complete logical units
+8. **Validate chunk sizes**:
    - Review all leaf sections against ~5000 token target
    - Subdivide any oversized sections further
    - Document atomic sections that cannot be split (in analyzer_notes)
-8. **Final validation**: Ensure no gaps or overlaps in line ranges
+9. **Final validation**: Ensure no gaps or overlaps in line ranges

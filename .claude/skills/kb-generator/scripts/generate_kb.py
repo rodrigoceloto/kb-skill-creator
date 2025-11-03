@@ -235,6 +235,83 @@ Browse the [hierarchical index](index.md) to explore the knowledge base structur
     print(f"  Skill file created: {skill_path}")
 
 
+def auto_calculate_estimated_tokens(structure_path: Path, workspace: Path) -> bool:
+    """
+    Automatically calculate estimated_tokens for all sections based on document density.
+
+    Args:
+        structure_path: Path to structure.json
+        workspace: Analysis workspace path
+
+    Returns:
+        True if any tokens were auto-calculated, False otherwise
+    """
+    from semantic_analyzer import (
+        load_structure,
+        save_structure,
+        calculate_document_density,
+        estimate_tokens_by_lines
+    )
+
+    # Load structure
+    structure = load_structure(structure_path)
+
+    # Load source documents to calculate density
+    samples_dir = workspace / 'samples'
+    source_files = list(samples_dir.glob('*.txt'))
+
+    if not source_files:
+        print("⚠️  No source files found for density calculation")
+        return False
+
+    # Combine all sources for density calculation
+    combined_content = ""
+    for source_file in source_files:
+        with open(source_file, 'r', encoding='utf-8') as f:
+            combined_content += f.read() + "\n\n"
+
+    # Calculate document density
+    tokens_per_line = calculate_document_density(combined_content)
+
+    # Recursively auto-calculate estimated_tokens for all sections
+    def process_node(node):
+        """Recursively process nodes and calculate estimated_tokens"""
+        changes_made = False
+
+        # Always calculate for this node (ensures consistency)
+        if 'start_line' in node and 'end_line' in node:
+            new_estimate = estimate_tokens_by_lines(
+                node['start_line'],
+                node['end_line'],
+                tokens_per_line
+            )
+            # Update if different or missing
+            if node.get('estimated_tokens') != new_estimate:
+                node['estimated_tokens'] = new_estimate
+                changes_made = True
+
+        # Process children
+        if 'children' in node:
+            for child in node['children']:
+                if process_node(child):
+                    changes_made = True
+
+        return changes_made
+
+    # Process all sections in hierarchy
+    any_changes = False
+    for section in structure.get('hierarchy', []):
+        if process_node(section):
+            any_changes = True
+
+    # Save if changes were made
+    if any_changes:
+        save_structure(structure, structure_path)
+        print(f"✓ Auto-calculated estimated_tokens using density: {tokens_per_line:.2f} tokens/line")
+
+    return any_changes
+
+
 def create_subdivision_request(
     workspace: Path,
     oversized_sections: List[Dict],
@@ -475,13 +552,16 @@ def run_analysis_phase(
         create_structure_template,
         save_structure,
         extract_document_sample,
-        estimate_tokens
+        estimate_tokens,
+        calculate_document_density
     )
 
     print("\nProcessing source documents...")
 
     # Process all source documents
     documents = []
+    combined_content = ""  # For density calculation
+
     for source_path in sources:
         print(f"\nReading: {source_path}")
         try:
@@ -496,6 +576,9 @@ def run_analysis_phase(
                 'tokens': tokens
             })
 
+            # Combine for density calculation
+            combined_content += content + "\n\n"
+
             # Save document to workspace for Claude to access
             doc_file = workspace / 'samples' / f"{Path(source_path).stem}.txt"
             with open(doc_file, 'w', encoding='utf-8') as f:
@@ -508,6 +591,11 @@ def run_analysis_phase(
 
     if not documents:
         raise ValueError("No documents could be processed")
+
+    # Calculate document density for automatic token estimation
+    tokens_per_line = calculate_document_density(combined_content)
+    total_lines = len(combined_content.split('\n'))
+    print(f"\nDocument density: {tokens_per_line:.2f} tokens/line ({total_lines} total lines)")
 
     # Create analysis request file for Claude Code
     analysis_request_file = workspace / 'ANALYSIS_REQUEST.md'
@@ -539,6 +627,33 @@ You (Claude Code) are requested to analyze the source document(s) and create a s
 """
 
     request_content += f"""
+
+## Document Density (Automatic Token Estimation)
+
+This document collection has an average density of **{tokens_per_line:.2f} tokens per line**.
+
+**IMPORTANT**: You do NOT need to manually calculate `estimated_tokens` for each section!
+
+The system will automatically estimate tokens for any section using:
+
+```
+estimated_tokens = (end_line - start_line) × {tokens_per_line:.2f}
+```
+
+**Your job**: Only provide `start_line` and `end_line` for each section. Token estimation is automatic!
+
+**Example**:
+```json
+{{
+  "id": "section_001",
+  "title": "Introduction",
+  "start_line": 0,
+  "end_line": 50
+  // estimated_tokens will be auto-calculated: 50 × {tokens_per_line:.2f} = {int(50 * tokens_per_line)} tokens
+}}
+```
+
+Do NOT include `estimated_tokens` in your structure.json - it will be calculated automatically.
 
 ## Your Task: Progressive Refinement Analysis
 
@@ -1265,6 +1380,13 @@ Examples:
 
             # Automatically validate structure if it exists
             if structure_path.exists():
+                # Auto-calculate estimated_tokens for sections that don't have it
+                print(f"\n{'=' * 60}")
+                print("AUTO-CALCULATING ESTIMATED TOKENS")
+                print(f"{'=' * 60}")
+                print()
+                auto_calculate_estimated_tokens(structure_path, workspace)
+
                 print(f"\n{'=' * 60}")
                 print("VALIDATING STRUCTURE")
                 print(f"{'=' * 60}")

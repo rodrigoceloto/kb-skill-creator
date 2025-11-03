@@ -20,6 +20,65 @@ def estimate_tokens(text: str) -> int:
     return len(text) // 4
 
 
+def calculate_document_density(full_text: str) -> float:
+    """
+    Calculate average tokens per line for a document.
+
+    This allows automatic token estimation based on line ranges without
+    needing to extract and count tokens for each section individually.
+
+    Args:
+        full_text: Complete document text
+
+    Returns:
+        Average tokens per line (float)
+
+    Example:
+        density = calculate_document_density(document)
+        # Returns: 42.5 tokens/line
+        # Can then estimate: section_tokens = (end_line - start_line) * 42.5
+    """
+    lines = full_text.split('\n')
+    total_lines = len(lines)
+    if total_lines == 0:
+        return 0.0
+
+    total_tokens = estimate_tokens(full_text)
+    return total_tokens / total_lines
+
+
+def estimate_tokens_by_lines(
+    start_line: int,
+    end_line: int,
+    tokens_per_line: float
+) -> int:
+    """
+    Estimate tokens based on line range and document density.
+
+    This is much faster than extracting content and counting tokens,
+    and provides consistent estimates across all sections based on
+    the document's actual characteristics.
+
+    Args:
+        start_line: Starting line number (0-indexed, inclusive)
+        end_line: Ending line number (0-indexed, exclusive)
+        tokens_per_line: Document density (from calculate_document_density)
+
+    Returns:
+        Estimated token count (int)
+
+    Example:
+        # Document has 45.3 tokens/line average
+        estimated = estimate_tokens_by_lines(100, 250, 45.3)
+        # Returns: (250 - 100) * 45.3 = 6795 tokens
+    """
+    if start_line >= end_line:
+        return 0
+
+    line_count = end_line - start_line
+    return int(line_count * tokens_per_line)
+
+
 def extract_document_sample(text: str, sample_size: int = 10000) -> Dict[str, str]:
     """
     Extract representative samples from document for structure detection.
