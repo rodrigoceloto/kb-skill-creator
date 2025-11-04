@@ -727,47 +727,26 @@ For sections that are too large (>~{max_tokens} tokens), identify logical subdiv
 
 ⚠️ **Important**: Do not stop at first-level subdivision if sections are still oversized. Keep subdividing recursively until leaf sections meet the token target.
 
-### Step 3.5: Validate Marker Boundaries (CRITICAL)
+### Step 3.5: Validate Line Ranges (CRITICAL)
 
-Before creating the full structure.json, validate that your markers correctly delimit sections:
+Before creating the full structure.json, validate that your line ranges correctly delimit sections:
 
 **Validation Protocol:**
 
 1. **Pick 3-5 sample sections** from different parts of your planned structure
 2. **Manually test extraction** for each sample:
-   - Use extract_section_content() or similar to extract content between markers
+   - Use line numbers to extract content
    - Verify the extracted content matches your expectations
    - Check token count matches your estimate
 
 3. **Check for overlaps** between adjacent sections:
-   - Extract content for section N
-   - Extract content for section N+1
-   - Ensure no content appears in both extractions
-   - Verify end_marker of N comes BEFORE start_marker of N+1 in the document
+   - Ensure no overlapping line ranges
+   - Verify end_line of section N equals or is less than start_line of section N+1
 
-4. **Verify marker uniqueness**:
-   - If using generic patterns (like "Art. 5"), ensure context makes them unique
-   - Use Grep to check if markers appear multiple times
-   - Add more context to markers if needed
-
-5. **Test boundary cases**:
-   - First section in document
-   - Last section in document
+4. **Test boundary cases**:
+   - First section in document (start_line: 0)
+   - Last section in document (end_line should not exceed total lines)
    - Sections at different hierarchical levels
-
-**If validation fails:** STOP and revise your markers. Do not proceed to create the full structure.json with invalid markers.
-
-**Example validation check:**
-```python
-# Extract two adjacent sections
-content_1 = extract_between("TÍTULO I", "TÍTULO II")
-content_2 = extract_between("TÍTULO II", "TÍTULO III")
-
-# Verify:
-# - content_1 doesn't contain "TÍTULO II" content
-# - content_2 starts at "TÍTULO II"
-# - No overlap between sections
-```
 
 ### Step 4: Create Structure JSON
 
@@ -796,7 +775,7 @@ Output the complete hierarchical structure as JSON in this format:
       "semantic_type": "preamble",
       "start_line": 0,
       "end_line": 15,
-      "start_marker": "Nós, representantes do povo brasileiro",  // Optional: for reference
+      "start_marker": "Nós, representantes do povo brasileiro",
       "estimated_tokens": 150,
       "children": []
     }},
@@ -807,7 +786,7 @@ Output the complete hierarchical structure as JSON in this format:
       "semantic_type": "title",
       "start_line": 16,
       "end_line": 50,
-      "start_marker": "TÍTULO I",  // Optional: for reference
+      "start_marker": "TÍTULO I",
       "estimated_tokens": 800,
       "children": [
         {{
@@ -817,7 +796,7 @@ Output the complete hierarchical structure as JSON in this format:
           "semantic_type": "article",
           "start_line": 17,
           "end_line": 25,
-          "start_marker": "Art. 1º A República Federativa",  // Optional: for reference
+          "start_marker": "Art. 1º A República Federativa",
           "estimated_tokens": 120,
           "children": []
         }}
@@ -833,11 +812,11 @@ Output the complete hierarchical structure as JSON in this format:
 }}
 ```
 
-**Line Number Notes:**
-- `start_line`: 0-indexed, inclusive (first line of section)
-- `end_line`: 0-indexed, exclusive (first line of NEXT section)
+**Field Notes:**
+- `start_line`: 0-indexed, inclusive (first line of section) - USED FOR EXTRACTION
+- `end_line`: 0-indexed, exclusive (first line of NEXT section) - USED FOR EXTRACTION
+- `start_marker`: Text snippet from start of section - FOR HUMAN REFERENCE ONLY (not used for extraction)
 - Example: `start_line: 10, end_line: 20` extracts lines 10-19 (10 lines total)
-- `start_marker`: Optional field for human reference, NOT used for extraction
 
 ### Step 5: Validate Chunk Sizes
 
@@ -864,77 +843,15 @@ Output the complete hierarchical structure as JSON in this format:
 - [ ] **Line number validation:** No overlapping ranges (end_line of section N ≤ start_line of section N+1)
 - [ ] **Line number validation:** All line numbers are within document bounds (0 to total_lines)
 
-## Using Line Numbers (Preferred Method)
+## Using Line Numbers (Required Method)
 
-**Line numbers are the PRIMARY extraction method** because they eliminate all ambiguity.
+**Line numbers are the PRIMARY and ONLY extraction method** used by this system because they eliminate all ambiguity.
 
 ### Benefits of Line Numbers:
 - ✅ **100% precise** - No ambiguity, always extracts correct section
-- ✅ **Faster extraction** - Direct line range, no marker search
+- ✅ **Faster extraction** - Direct line range, no marker search needed
 - ✅ **Easier validation** - Simple range overlap checks
-- ✅ **Better debugging** - "Check lines 123-456" is clear
-
-### Optional: Marker Creation Best Practices
-
-Markers are OPTIONAL and used only for human reference. If you choose to include them:
-
-### Rule 1: Markers Must Be Unique and Specific
-
-**BAD Example (ambiguous):**
-```json
-"start_marker": "CHAPTER 1",
-"end_marker": "Section 3"  // Might appear in multiple chapters!
-```
-
-**GOOD Example (specific with context):**
-```json
-"start_marker": "CHAPTER 1: INTRODUCTION",
-"end_marker": "CHAPTER 2: METHODOLOGY"  // Next chapter start
-```
-
-### Rule 2: Use Next-Section Start as End Marker (CRITICAL)
-
-The most reliable way to avoid overlaps is to use the start marker of the NEXT section at the same level:
-
-```json
-{{
-  "id": "section_001",
-  "title": "TÍTULO I – Dos Princípios Fundamentais",
-  "start_marker": "TÍTULO I",
-  "end_marker": "TÍTULO II"  // Start of next TÍTULO, not an article number
-}}
-```
-
-This ensures sections never overlap and boundaries are clean.
-
-### Rule 3: Include Contextual Text for Repetitive Structures
-
-For documents with repeated patterns (legal documents, numbered lists), include enough context to make markers unique:
-
-**BAD (too generic for legal documents):**
-```json
-"start_marker": "Art. 5º",
-"end_marker": "Art. 6º"
-```
-
-**GOOD (includes contextual text):**
-```json
-"start_marker": "Art. 5º Todos são iguais perante a lei",
-"end_marker": "Art. 6º São direitos sociais"
-```
-
-### Rule 4: Handle End-of-Document Sections
-
-For the last section in a document or hierarchy level, use `null` as end_marker or a clear final marker:
-
-```json
-{{
-  "id": "section_last",
-  "title": "Final Dispositions",
-  "start_marker": "DISPOSIÇÕES FINAIS",
-  "end_marker": null  // Extends to end of document
-}}
-```
+- ✅ **Better debugging** - "Check lines 123-456" is clear and verifiable
 
 ### Important General Notes
 
@@ -943,66 +860,25 @@ For the last section in a document or hierarchy level, use `null` as end_marker 
 - **Preserve hierarchy**: Maintain parent-child relationships as they exist in the document
 - **Token-optimized**: Aim for ~{max_tokens} tokens but prioritize semantic completeness
 
-## Example: Legal Document Structure (Constitution, Laws)
-
-Legal documents require special attention due to repetitive structures and cross-references:
-
-**Hierarchical structure example:**
-```json
-{{
-  "id": "titulo_02",
-  "title": "TÍTULO II – Dos Direitos e Garantias Fundamentais",
-  "start_marker": "TÍTULO II",
-  "end_marker": "TÍTULO III",  // Next TÍTULO, ensures clean boundary
-  "children": [
-    {{
-      "id": "titulo_02_cap_01",
-      "title": "CAPÍTULO I – Dos Direitos Individuais",
-      "start_marker": "CAPÍTULO I",
-      "end_marker": "CAPÍTULO II",  // Next CAPÍTULO
-      "children": [
-        {{
-          "id": "titulo_02_cap_01_art_05",
-          "title": "Art. 5º - Igualdade perante a lei",
-          "start_marker": "Art. 5º Todos são iguais perante a lei",
-          "end_marker": "Art. 6º São direitos sociais",  // Next article with context
-          "children": []  // Leaf section
-        }}
-      ]
-    }}
-  ]
-}}
-```
-
-**Key points for legal documents:**
-- Use next-section headers as end markers (TÍTULO → TÍTULO, CAPÍTULO → CAPÍTULO)
-- Include first words of article text for uniqueness ("Art. 5º Todos são...")
-- Never use just article numbers as markers ("Art. 5º" appears in references!)
-- Subdivide long articles into paragraphs if needed
-
 ## Common Pitfalls to Avoid
 
 ### 1. Reading Large Documents Multiple Times
 - ❌ DON'T repeatedly read the entire document
 - ✅ DO use strategic sampling + targeted Grep searches
 
-### 2. Using Ambiguous or Generic Markers
-- ❌ DON'T use patterns like "Section 1", "Art. 5", or "Chapter 2"
-- ✅ DO include context: "Section 1: Introduction", "Art. 5º Todos são iguais"
+### 2. Overlapping Line Ranges
+- ❌ DON'T create line ranges that overlap (end_line of section N > start_line of section N+1)
+- ✅ DO ensure end_line of one section ≤ start_line of next section at same level
 
-### 3. Not Validating Markers Before Finalizing
-- ❌ DON'T create full structure without testing markers on samples
+### 3. Not Validating Line Ranges Before Finalizing
+- ❌ DON'T create full structure without testing extraction on samples
 - ✅ DO validate 3-5 sections before proceeding (Step 3.5)
 
-### 4. Overlapping Section Boundaries
-- ❌ DON'T use end markers that appear inside the section
-- ✅ DO use next-section start as end marker to ensure clean boundaries
+### 4. Manual Token Estimation
+- ❌ DON'T manually calculate or guess token counts
+- ✅ DO use line numbers only - tokens are automatically calculated based on document density
 
-### 5. Estimating Tokens Without Actual Extraction
-- ❌ DON'T guess token counts
-- ✅ DO extract actual content between markers and calculate precise estimates
-
-### 6. Ignoring Document-Specific Patterns
+### 5. Ignoring Document-Specific Patterns
 - ❌ DON'T apply generic structure to specialized documents
 - ✅ DO analyze the specific hierarchical pattern (legal, technical, academic)
 

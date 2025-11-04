@@ -549,32 +549,50 @@ def create_section_template(
     title: str,
     level: int,
     semantic_type: str = 'section',
+    start_line: int = 0,
+    end_line: int = 0,
     start_marker: str = '',
-    end_marker: str = '',
     estimated_tokens: int = 0
 ) -> Dict:
     """
     Create a section dictionary template.
+
+    Uses line numbers as the ONLY extraction method (precise and unambiguous).
+    start_marker is required for human reference/readability but NOT used for extraction.
 
     Args:
         section_id: Unique section identifier
         title: Section title
         level: Hierarchical level (0=root, 1=major, 2=sub, etc.)
         semantic_type: Type of section (chapter, article, procedure, etc.)
-        start_marker: Text marking section start
-        end_marker: Text marking section end
-        estimated_tokens: Approximate token count
+        start_line: Starting line number (0-indexed, inclusive)
+        end_line: Ending line number (0-indexed, exclusive)
+        start_marker: Text marker for human reference (NOT used for extraction)
+        estimated_tokens: Approximate token count (will be auto-calculated if 0)
 
     Returns:
-        Section dictionary
+        Section dictionary with line number-based extraction
+
+    Example:
+        section = create_section_template(
+            section_id="section_001",
+            title="Introduction",
+            level=0,
+            semantic_type="chapter",
+            start_line=10,
+            end_line=50,
+            start_marker="# Introduction"  # Required: helps humans identify section
+        )
+        # estimated_tokens will be auto-calculated from line range
     """
     return {
         'id': section_id,
         'title': title,
         'level': level,
         'semantic_type': semantic_type,
+        'start_line': start_line,
+        'end_line': end_line,
         'start_marker': start_marker,
-        'end_marker': end_marker,
         'estimated_tokens': estimated_tokens,
         'children': []
     }

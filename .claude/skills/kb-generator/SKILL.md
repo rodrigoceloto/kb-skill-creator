@@ -169,9 +169,9 @@ When performing semantic analysis:
    - Example: `Grep(pattern="^Chapter \\d+", output_mode="content", -n=True)`
    - Extract line numbers from output for `start_line` and `end_line`
 3. **Use line numbers**: Store section boundaries as line numbers (0-indexed)
-   - Line numbers eliminate marker ambiguity
-   - More precise and reliable than text markers
-   - Optional: Include `start_marker` field for human reference
+   - Line numbers are the ONLY method used for extraction
+   - More precise and reliable than text markers (eliminates all ambiguity)
+   - Include `start_marker` field for human reference (not used for extraction)
 4. **Token estimation is automatic**: You do NOT need to calculate `estimated_tokens`
    - System automatically calculates based on document density (tokens/line)
    - Formula: `estimated_tokens = (end_line - start_line) × tokens_per_line`
