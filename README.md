@@ -30,7 +30,7 @@ This skill creates new Claude Code skills from documentation sources (PDF, Markd
 Create a knowledge base from a single document:
 
 ```bash
-python3 .claude/skills/kb-generator/scripts/generate_kb.py \
+python3 .claude/skills/kb-skill-creator/scripts/generate_kb.py \
   --name "my-knowledge-base" \
   --sources "/path/to/document.pdf" \
   --description "Description of what this knowledge base contains"
@@ -41,7 +41,7 @@ python3 .claude/skills/kb-generator/scripts/generate_kb.py \
 Combine multiple documents into one knowledge base:
 
 ```bash
-python3 .claude/skills/kb-generator/scripts/generate_kb.py \
+python3 .claude/skills/kb-skill-creator/scripts/generate_kb.py \
   --name "product-docs" \
   --sources manual.pdf guide.md reference.txt \
   --description "Complete product documentation including manual, guide, and reference"
@@ -52,7 +52,7 @@ python3 .claude/skills/kb-generator/scripts/generate_kb.py \
 Adjust the maximum tokens per chunk:
 
 ```bash
-python3 .claude/skills/kb-generator/scripts/generate_kb.py \
+python3 .claude/skills/kb-skill-creator/scripts/generate_kb.py \
   --name "large-manual" \
   --sources manual.pdf \
   --description "Large technical manual" \
@@ -64,7 +64,7 @@ python3 .claude/skills/kb-generator/scripts/generate_kb.py \
 ### Example 1: Car Manual
 
 ```bash
-python3 .claude/skills/kb-generator/scripts/generate_kb.py \
+python3 .claude/skills/kb-skill-creator/scripts/generate_kb.py \
   --name "corolla-hybrid-2025-manual" \
   --sources "Toyota_Corolla_Hybrid_2025_Manual.pdf" \
   --description "Complete owner's manual for Toyota Corolla Hybrid 2025 including maintenance, features, and troubleshooting"
@@ -78,7 +78,7 @@ This creates a skill that Claude will automatically use when you ask questions l
 ### Example 2: API Documentation
 
 ```bash
-python3 .claude/skills/kb-generator/scripts/generate_kb.py \
+python3 .claude/skills/kb-skill-creator/scripts/generate_kb.py \
   --name "api-reference" \
   --sources "api-overview.md" "endpoints.md" "authentication.md" \
   --description "Complete API reference documentation including endpoints, authentication, and examples"
@@ -139,7 +139,7 @@ Each chunk includes:
 ### Custom Output Directory
 
 ```bash
-python3 .claude/skills/kb-generator/scripts/generate_kb.py \
+python3 .claude/skills/kb-skill-creator/scripts/generate_kb.py \
   --name "my-kb" \
   --sources doc.pdf \
   --description "My knowledge base" \
@@ -151,7 +151,7 @@ python3 .claude/skills/kb-generator/scripts/generate_kb.py \
 Create a comprehensive knowledge base from an entire documentation set:
 
 ```bash
-python3 .claude/skills/kb-generator/scripts/generate_kb.py \
+python3 .claude/skills/kb-skill-creator/scripts/generate_kb.py \
   --name "complete-product-docs" \
   --sources \
     "00-overview.md" \
@@ -207,7 +207,7 @@ If the generator creates only one large chunk:
 
 Make sure to run from the project directory or use the full path:
 ```bash
-python3 /Users/rodrigoceloto/Projects/skills/.claude/skills/kb-generator/scripts/generate_kb.py --name ...
+python3 /Users/rodrigoceloto/Projects/skills/.claude/skills/kb-skill-creator/scripts/generate_kb.py --name ...
 ```
 
 ## License

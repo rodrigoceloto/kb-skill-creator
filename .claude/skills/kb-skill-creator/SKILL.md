@@ -1,5 +1,5 @@
 ---
-name: kb-generator
+name: kb-skill-creator
 description: Generate semantically-structured knowledge base skills from documents using Claude Code's analysis. Creates discoverable, hierarchically-organized knowledge bases from PDF, Markdown, and text files. Use this when the user wants to create a knowledge base that preserves logical document structure.
 ---
 
@@ -15,7 +15,7 @@ When the user requests a knowledge base, use this two-phase semantic analysis pr
 
 **Phase 1: Semantic Analysis (Iterative)**
 ```bash
-python3 .claude/skills/kb-generator/scripts/generate_kb.py \
+python3 .claude/skills/kb-skill-creator/scripts/generate_kb.py \
   --name "kb-name" \
   --sources "path/to/document.pdf" \
   --description "Description of the knowledge base" \
@@ -48,7 +48,7 @@ This creates an analysis workspace and ANALYSIS_REQUEST.md. You (Claude Code) sh
 
 **Phase 2: Skill Generation**
 ```bash
-python3 .claude/skills/kb-generator/scripts/generate_kb.py \
+python3 .claude/skills/kb-skill-creator/scripts/generate_kb.py \
   --name "kb-name" \
   --from-structure "path/to/structure.json"
 ```
@@ -111,7 +111,7 @@ All generated knowledge bases provide:
 
 ```bash
 # Phase 1: Start semantic analysis
-python3 .claude/skills/kb-generator/scripts/generate_kb.py \
+python3 .claude/skills/kb-skill-creator/scripts/generate_kb.py \
   --name "payment-api-docs" \
   --sources "payment-api-documentation.pdf" \
   --description "Complete API documentation for payment processing platform" \
@@ -153,7 +153,7 @@ python3 .claude/skills/kb-generator/scripts/generate_kb.py \
 
 ```bash
 # Phase 2: Generate the skill
-python3 .claude/skills/kb-generator/scripts/generate_kb.py \
+python3 .claude/skills/kb-skill-creator/scripts/generate_kb.py \
   --name "payment-api-docs" \
   --from-structure ".claude/skills/payment-api-docs_analysis/structure.json"
 ```
